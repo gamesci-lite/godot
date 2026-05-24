@@ -1,0 +1,26 @@
+import os
+Import("env")
+Import("env_modules")
+
+env_wx = env_modules.Clone()
+env_wx.add_source_files(env.modules_sources, "*.cpp")
+
+DEFAULT_A = os.path.normpath(os.path.join(
+    Dir("#").abspath, "..", "rlib", "gd-main-extension",
+    "target", "wasm32-unknown-emscripten", "release", "libgd_main_extension.a"))
+RUST_STATIC = os.environ.get("WX_MONOLITH_RUST_STATIC", DEFAULT_A)
+
+if not os.path.exists(RUST_STATIC):
+    raise Exception(
+        "[wx_monolith] libgd_main_extension.a not found at: %s\n"
+        "  cargo build --target wasm32-unknown-emscripten --release "
+        "--no-default-features --features 'tung,wx-monolith' first,\n"
+        "  or set WX_MONOLITH_RUST_STATIC." % RUST_STATIC)
+
+print("[wx_monolith] linking rust staticlib: %s" % RUST_STATIC)
+
+env.Append(LINKFLAGS=[
+    "-Wl,--whole-archive",
+    RUST_STATIC,
+    "-Wl,--no-whole-archive",
+])

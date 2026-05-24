@@ -48,6 +48,14 @@ def get_opts():
         BoolVariable("use_asan", "Use Emscripten address sanitizer (ASAN)", False),
         BoolVariable("use_lsan", "Use Emscripten leak sanitizer (LSAN)", False),
         BoolVariable("use_safe_heap", "Use Emscripten SAFE_HEAP sanitizer", False),
+        # wx-monolith: WeChat 小游戏 single-wasm 静态链路线 (modules/wx_monolith/).
+        # 启用时:
+        #   1. modules/wx_monolith/SCsub 把 libgd_main_extension.a 静态链进 godot.wasm
+        #   2. SUPPORT_LONGJMP 强制改 'emscripten' 模式 (WeChat V8 不支持 wasm-eh Tag section)
+        #   3. EXPORTED_RUNTIME_METHODS 暴露 FS/FS_createDataFile/FS_createPath/addRunDependency/
+        #      removeRunDependency 给 JS, 让 game.js 能把 pck 塞进 emscripten FS
+        # 与 dlink_enabled=yes 互斥, 详见 arcrate _ai/wx_monolith_progress.md.
+        BoolVariable("wx_monolith", "Enable wx-monolith static-link build (WeChat 小游戏专用)", False),
         # eval() can be a security concern, so it can be disabled.
         BoolVariable("javascript_eval", "Enable JavaScript eval interface", True),
         BoolVariable(
@@ -315,9 +323,13 @@ def configure(env: "SConsEnvironment"):
     # Wrap the JavaScript support code around a closure named Godot.
     env.Append(LINKFLAGS=["-sMODULARIZE=1", "-sEXPORT_NAME='Godot'"])
 
-    # Force long jump mode to 'wasm'
-    env.Append(CCFLAGS=["-sSUPPORT_LONGJMP='wasm'"])
-    env.Append(LINKFLAGS=["-sSUPPORT_LONGJMP='wasm'"])
+    # Force long jump mode to 'wasm'.
+    # wx_monolith 例外: WeChat 小游戏 V8 不支持 wasm-eh proposal, 'wasm' 模式产物会
+    # 带 Tag section (id=13) 触发 CompileError: unexpected section <Exception>.
+    # 'emscripten' 模式回退旧 longjmp (JS 桩), 没有 Tag section.
+    longjmp_mode = "emscripten" if env["wx_monolith"] else "wasm"
+    env.Append(CCFLAGS=[f"-sSUPPORT_LONGJMP='{longjmp_mode}'"])
+    env.Append(LINKFLAGS=[f"-sSUPPORT_LONGJMP='{longjmp_mode}'"])
 
     # Allow increasing memory buffer size during runtime. This is efficient
     # when using WebAssembly (in comparison to asm.js) and works well for
@@ -334,6 +346,17 @@ def configure(env: "SConsEnvironment"):
         "HEAPF64",
     ]
     env["EXPORTED_RUNTIME_METHODS"] += ["callMain", "cwrap"] + heap_arrays
+    # wx_monolith: 暴露 FS / FS_createDataFile / FS_createPath / addRunDependency /
+    # removeRunDependency 给 JS, 让 game.js 能把 pck 塞进 emscripten FS + 等异步资源就绪.
+    # 默认 emscripten 不导出, 调用会 assert "FS was not exported".
+    if env["wx_monolith"]:
+        env["EXPORTED_RUNTIME_METHODS"] += [
+            "FS",
+            "FS_createDataFile",
+            "FS_createPath",
+            "addRunDependency",
+            "removeRunDependency",
+        ]
     env["EXPORTED_FUNCTIONS"] += ["_malloc", "_free"]
 
     # Add code that allow exiting runtime.
