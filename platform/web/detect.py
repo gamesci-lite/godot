@@ -358,6 +358,11 @@ def configure(env: "SConsEnvironment"):
             "removeRunDependency",
         ]
     env["EXPORTED_FUNCTIONS"] += ["_malloc", "_free"]
+    # wx_monolith: 显式导出 _gd_main_extension_init, 防止 emcc closure compiler /
+    # linker tree-shaking 把 staticlib 里我们的 entry symbol 裁掉. 即便 register_types.cpp
+    # 用 extern "C" 引用了它, 不显式 EXPORTED_FUNCTIONS 也可能被优化掉.
+    if env["wx_monolith"]:
+        env["EXPORTED_FUNCTIONS"] += ["_gd_main_extension_init"]
 
     # Add code that allow exiting runtime.
     env.Append(LINKFLAGS=["-sEXIT_RUNTIME=1"])
