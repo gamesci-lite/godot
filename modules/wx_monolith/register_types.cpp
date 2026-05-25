@@ -3,11 +3,13 @@
 #include "core/config/project_settings.h"
 #include "core/error/error_macros.h"
 #include "core/extension/gdextension.h"
-#include "core/extension/gdextension_interface.h"
 #include "core/extension/gdextension_loader.h"
 #include "core/extension/gdextension_manager.h"
 #include "core/object/ref_counted.h"
 #include "core/string/print_string.h"
+
+// gdextension.h 已经 transitively include 了 gdextension_interface.gen.h
+// (4.6 的 interface 头是 .gen.h, 由 codegen 生成, 不要直接 include gdextension_interface.h)
 
 extern "C" {
 GDExtensionBool gd_main_extension_init(
