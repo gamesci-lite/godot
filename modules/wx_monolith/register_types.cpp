@@ -64,7 +64,13 @@ public:
 } // namespace
 
 void initialize_wx_monolith_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_CORE) {
+	// 必须 SERVERS 级别, 不能 CORE.
+	// main.cpp 顺序:
+	//   initialize_modules(CORE);     ← 我们如果在这跑, gdextension_setup_interface() 还没调
+	//   register_core_extensions();   ← REGISTER_INTERFACE_FUNC(get_godot_version2) 在这里
+	//   initialize_modules(SERVERS);  ← 改在这里跑, interface 函数表已就绪
+	// gdext 在 gd_main_extension_init 里查 get_godot_version/2, 之前 CORE 级别 100% 失败.
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
 		return;
 	}
 
@@ -90,7 +96,7 @@ void initialize_wx_monolith_module(ModuleInitializationLevel p_level) {
 }
 
 void uninitialize_wx_monolith_module(ModuleInitializationLevel p_level) {
-	if (p_level != MODULE_INITIALIZATION_LEVEL_CORE) {
+	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
 		return;
 	}
 }
