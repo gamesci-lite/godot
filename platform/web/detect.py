@@ -346,16 +346,16 @@ def configure(env: "SConsEnvironment"):
         "HEAPF64",
     ]
     env["EXPORTED_RUNTIME_METHODS"] += ["callMain", "cwrap"] + heap_arrays
-    # wx_monolith: 暴露 FS / FS_createDataFile / FS_createPath / addRunDependency /
-    # removeRunDependency 给 JS, 让 game.js 能把 pck 塞进 emscripten FS + 等异步资源就绪.
+    # wx_monolith: 暴露 FS / FS_createDataFile / FS_createPath 给 JS,
+    # 让 game.js/wx-pck-extract.js 能把 pck 塞进 emscripten FS.
     # 默认 emscripten 不导出, 调用会 assert "FS was not exported".
+    # (2026-10-12 精简: 删掉 addRunDependency/removeRunDependency — 全仓 shell JS /
+    #  Rust 侧均无引用, 属最初实现时的过度导出)
     if env["wx_monolith"]:
         env["EXPORTED_RUNTIME_METHODS"] += [
             "FS",
             "FS_createDataFile",
             "FS_createPath",
-            "addRunDependency",
-            "removeRunDependency",
         ]
     env["EXPORTED_FUNCTIONS"] += ["_malloc", "_free"]
     # wx_monolith: 显式导出 _gd_main_extension_init, 防止 emcc closure compiler /
